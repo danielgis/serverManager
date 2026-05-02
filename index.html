@@ -184,6 +184,7 @@
 
     let pollingInterval = null;
     let bootDeadline = null;
+    let pendingBootRequest = false;
 
     function setAuthFeedback(message, color = "#64748b") {
         const feedback = document.getElementById('auth-feedback');
@@ -214,6 +215,7 @@
 
     function limpiarTimeoutArranque() {
         bootDeadline = null;
+        pendingBootRequest = false;
     }
 
     function iniciarTimeoutArranque() {
@@ -276,8 +278,33 @@
             return;
         }
 
-        if (estado === "3" || estado === "0") {
+        if (["1", "2", "3"].includes(estado)) {
+            pendingBootRequest = false;
+        }
+
+        if (estado === "3" || (!pendingBootRequest && estado === "0")) {
             limpiarTimeoutArranque();
+        }
+
+        if (pendingBootRequest && estado === "0") {
+            iniciarTimeoutArranque();
+            if (Date.now() > bootDeadline) {
+                await mostrarFalloArranque(token);
+                limpiarTimeoutArranque();
+                return;
+            }
+
+            loader.classList.add('active');
+            card.classList.remove('online');
+            statusText.style.color = "#fbbf24";
+            dot.style.background = "#fbbf24";
+            dot.classList.add('pulse');
+            labelText.textContent = "COMANDO ENVIADO: ESPERANDO CONFIRMACIÓN DEL DISPOSITIVO";
+
+            const ahora = new Date();
+            lastUpdate.textContent = `Última actualización: ${ahora.toLocaleTimeString('es-ES')}`;
+            actionArea.innerHTML = "<button disabled>ESPERANDO CAMBIO DE ESTADO...</button>";
+            return;
         }
 
         if (["1", "2"].includes(estado)) {
@@ -309,8 +336,9 @@
         document.getElementById('action-area').innerHTML = "<button disabled>ENVIANDO COMANDO...</button>";
         document.getElementById('loader').classList.add('active');
         bootDeadline = Date.now() + BOOT_TIMEOUT_MS;
+        pendingBootRequest = nuevoEstado === 1;
         await fetch(`${SCRIPT_URL}?key=${token}&set=${nuevoEstado}`);
-        consultarEstado(token);
+        await consultarEstado(token);
         if (!pollingInterval) {
             pollingInterval = setInterval(() => consultarEstado(token), 8000);
         }
