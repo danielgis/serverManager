@@ -157,6 +157,7 @@
     <div id="auth-section">
         <input type="password" id="token" placeholder="TOKEN DE ACCESO">
         <button id="btn-login" onclick="initPanel()">ESTABLECER CONEXIÓN</button>
+        <div id="auth-feedback" class="last-update" style="display:none;"></div>
     </div>
 
     <div id="display-area" style="display:none;">
@@ -183,6 +184,13 @@
 
     let pollingInterval = null;
     let bootDeadline = null;
+
+    function setAuthFeedback(message, color = "#64748b") {
+        const feedback = document.getElementById('auth-feedback');
+        feedback.textContent = message;
+        feedback.style.color = color;
+        feedback.style.display = message ? 'block' : 'none';
+    }
 
     async function consultarEstado(token) {
         try {
@@ -321,22 +329,44 @@
         document.getElementById('display-area').style.display = "none";
         document.getElementById('auth-section').style.display = "block";
         document.getElementById('token').value = "";
+        setAuthFeedback("");
         document.querySelector('.card').classList.remove('online');
         document.getElementById('loader').classList.remove('active');
     }
 
-    function initPanel() {
+    async function initPanel() {
         const token = document.getElementById('token').value.trim();
+        const loginButton = document.getElementById('btn-login');
         if (!token) return;
 
         detenerPolling();
         limpiarTimeoutArranque();
+        setAuthFeedback("Validando credenciales...", "#94a3b8");
+        loginButton.disabled = true;
 
-        document.getElementById('auth-section').style.display = "none";
-        document.getElementById('display-area').style.display = "block";
+        try {
+            const response = await fetch(`${SCRIPT_URL}?key=${token}`);
+            const estado = (await response.text()).trim();
+            const estadosValidos = ["0", "1", "2", "3"];
 
-        document.getElementById('loader').classList.add('active');
-        consultarEstado(token);
+            if (!estadosValidos.includes(estado)) {
+                setAuthFeedback("Token inválido. Verifica el valor e inténtalo nuevamente.", "#f87171");
+                return;
+            }
+
+            setAuthFeedback("");
+            document.getElementById('auth-section').style.display = "none";
+            document.getElementById('display-area').style.display = "block";
+            document.getElementById('loader').classList.add('active');
+            await actualizarUI(estado, token);
+        } catch (error) {
+            console.error("API Error", error);
+            setAuthFeedback("No se pudo validar el token. Revisa la conexión e inténtalo nuevamente.", "#f87171");
+            return;
+        } finally {
+            loginButton.disabled = false;
+        }
+
         pollingInterval = setInterval(() => consultarEstado(token), 8000);
     }
 
