@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Control | Danielgis</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --primary: #38bdf8;
+            --accent: #818cf8;
+        }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: radial-gradient(ellipse at top, #1e3a5f 0%, #0f172a 60%);
+            color: var(--text);
+            margin: 0;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .card { 
+            background: var(--card-bg); 
+            padding: 2.5rem 2rem; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(56,189,248,0.1); 
+            text-align: center; 
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* Logo */
+        .logo-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.2rem;
+        }
+        .logo-wrap img {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            box-shadow: 0 0 16px rgba(56,189,248,0.4);
+        }
+
+        h2 { margin: 0 0 0.25rem; color: var(--primary); letter-spacing: 2px; font-size: 1.3rem; text-transform: uppercase; }
+        .brand { font-size: 0.72rem; color: var(--accent); margin-bottom: 2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; opacity: 0.85; }
+        
+        /* Loader bar */
+        .loader-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            display: none;
+        }
+        .loader-bar.active { display: block; }
+        .loader-bar::after {
+            content: '';
+            display: block;
+            height: 100%;
+            width: 40%;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            border-radius: 2px;
+            animation: slide 1.2s ease-in-out infinite;
+        }
+        @keyframes slide {
+            0%   { transform: translateX(-150%); }
+            100% { transform: translateX(350%); }
+        }
+
+        .status-container {
+            padding: 1.25rem 1rem;
+            border-radius: 12px;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.06);
+            margin: 0 0 1.5rem;
+        }
+        .status-label { font-size: 0.65rem; letter-spacing: 2px; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .status-val {
+            font-size: 1rem; font-weight: 700; letter-spacing: 1px;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            transition: color 0.4s ease;
+        }
+        .status-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: currentColor; flex-shrink: 0;
+            transition: background 0.4s ease;
+        }
+        .status-dot.pulse { animation: pulse-dot 1.5s ease-in-out infinite; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.35; transform: scale(1.5); }
+        }
+        .last-update { font-size: 0.65rem; color: #64748b; margin-top: 0.6rem; letter-spacing: 1px; }
+        .card { transition: box-shadow 0.5s ease; }
+        .card.online {
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(74,222,128,0.3), 0 0 28px rgba(74,222,128,0.08);
+        }
+        .btn-logout {
+            background: transparent !important;
+            color: #475569 !important;
+            box-shadow: none !important;
+            font-size: 0.72rem !important;
+            padding: 8px !important;
+            margin-top: 0.25rem;
+            letter-spacing: 1px;
+        }
+        .btn-logout:hover { color: #f87171 !important; transform: none !important; box-shadow: none !important; }
+
+        input { 
+            background: #0f172a; border: 1px solid #334155; color: white;
+            padding: 12px 14px; margin-bottom: 14px; border-radius: 10px; width: 100%;
+            text-align: center; font-size: 0.95rem; letter-spacing: 2px;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(56,189,248,0.15); }
+        button { 
+            background: linear-gradient(135deg, var(--primary), #0ea5e9);
+            color: var(--bg); border: none; 
+            padding: 13px 24px; border-radius: 10px; cursor: pointer; 
+            font-weight: 700; font-size: 0.9rem; letter-spacing: 1px;
+            width: 100%; transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 4px 14px rgba(56,189,248,0.3);
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56,189,248,0.4); }
+        button:active { transform: translateY(0); }
+        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; box-shadow: none; transform: none; }
+        
+        footer { margin-top: 1.5rem; font-size: 0.75rem; opacity: 0.45; letter-spacing: 1px; }
+
+        @media (max-width: 480px) {
+            .card { padding: 2rem 1.25rem; }
+            .logo-wrap img { width: 60px; height: 60px; }
+            h2 { font-size: 1.15rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="logo-wrap">
+        <img src="https://avatars.githubusercontent.com/u/18519933?v=4" alt="Danielgis Logo">
+    </div>
+    <h2>Centro de Control</h2>
+    <div class="brand">By Danielgis</div>
+    
+    <div id="auth-section">
+        <input type="password" id="token" placeholder="TOKEN DE ACCESO">
+        <button id="btn-login" onclick="initPanel()">ESTABLECER CONEXIÓN</button>
+    </div>
+
+    <div id="display-area" style="display:none;">
+        <div class="loader-bar" id="loader"></div>
+        <div class="status-container">
+            <div class="status-label">Estado del Sistema</div>
+            <div id="status-text" class="status-val">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-label-text">Inicializando...</span>
+            </div>
+            <div class="last-update" id="last-update"></div>
+        </div>
+        <div id="action-area"></div>
+        <button class="btn-logout" onclick="cerrarSesion()">&#8592; DESCONECTAR</button>
+    </div>
+</div>
+
+<footer>&copy; <span id="current-year"></span> Danielgis Soluciones de Ingeniería | Versión <span id="app-version"></span></footer>
+
+<script>
+    const APP_VERSION = "1.0.0";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzToNpeCxvoUg-TsJod1MR0XVEwTf806mqOPvsRGXLZ2qw-gT196WgVji4xVtYwjar8/exec";
+
+    let pollingInterval = null;
+
+    async function consultarEstado(token) {
+        try {
+            const response = await fetch(`${SCRIPT_URL}?key=${token}`);
+            const estado = await response.text();
+            actualizarUI(estado.trim(), token);
+        } catch (error) {
+            console.error("API Error", error);
+            mostrarError("ERROR DE RED: SIN CONEXIÓN");
+        }
+    }
+
+    function mostrarError(msg) {
+        const dot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        document.getElementById('status-label-text').textContent = msg;
+        statusText.style.color = "#f87171";
+        dot.style.background = "#f87171";
+        dot.classList.remove('pulse');
+    }
+
+    function actualizarUI(estado, token) {
+        const statusText  = document.getElementById('status-text');
+        const labelText   = document.getElementById('status-label-text');
+        const dot         = document.getElementById('status-dot');
+        const actionArea  = document.getElementById('action-area');
+        const lastUpdate  = document.getElementById('last-update');
+        const loader      = document.getElementById('loader');
+        const card        = document.querySelector('.card');
+        actionArea.innerHTML = "";
+
+        const estados = {
+            "0": { txt: "SISTEMA: FUERA DE LÍNEA",           color: "#f87171", btn: true,  pulse: false },
+            "1": { txt: "SEÑAL ENVIADA: AGUARDANDO PICO W",  color: "#fbbf24", btn: false, pulse: true  },
+            "2": { txt: "HARDWARE: INICIANDO...",             color: "#60a5fa", btn: false, pulse: true  },
+            "3": { txt: "SISTEMA: EN LÍNEA",                 color: "#4ade80", btn: false, pulse: true  }
+        };
+
+        const current = estados[estado];
+
+        if (!current) {
+            mostrarError("ERROR: TOKEN INVÁLIDO");
+            detenerPolling();
+            return;
+        }
+
+        loader.classList.toggle('active', ["1","2"].includes(estado));
+        card.classList.toggle('online', estado === "3");
+
+        statusText.style.color  = current.color;
+        dot.style.background    = current.color;
+        dot.classList.toggle('pulse', current.pulse);
+        labelText.textContent   = current.txt;
+
+        const ahora = new Date();
+        lastUpdate.textContent = `Última actualización: ${ahora.toLocaleTimeString('es-ES')}`;
+
+        if (current.btn) {
+            actionArea.innerHTML = `<button onclick="cambiarEstado('${token}', 1)">ENCENDER SERVIDOR</button>`;
+        }
+    }
+
+    async function cambiarEstado(token, nuevoEstado) {
+        document.getElementById('action-area').innerHTML = "<button disabled>ENVIANDO COMANDO...</button>";
+        document.getElementById('loader').classList.add('active');
+        await fetch(`${SCRIPT_URL}?key=${token}&set=${nuevoEstado}`);
+        consultarEstado(token);
+    }
+
+    function detenerPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+
+    function cerrarSesion() {
+        detenerPolling();
+        document.getElementById('display-area').style.display = "none";
+        document.getElementById('auth-section').style.display = "block";
+        document.getElementById('token').value = "";
+        document.querySelector('.card').classList.remove('online');
+        document.getElementById('loader').classList.remove('active');
+    }
+
+    function initPanel() {
+        const token = document.getElementById('token').value.trim();
+        if (!token) return;
+
+        detenerPolling();
+
+        document.getElementById('auth-section').style.display = "none";
+        document.getElementById('display-area').style.display = "block";
+
+        document.getElementById('loader').classList.add('active');
+        consultarEstado(token);
+        pollingInterval = setInterval(() => consultarEstado(token), 8000);
+    }
+
+    document.getElementById('token').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') initPanel();
+    });
+
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+    document.getElementById('app-version').textContent = APP_VERSION;
+</script>
+
+</body>
+</html>
