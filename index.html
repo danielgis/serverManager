@@ -179,14 +179,16 @@
 <script>
     const APP_VERSION = "1.0.0";
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzToNpeCxvoUg-TsJod1MR0XVEwTf806mqOPvsRGXLZ2qw-gT196WgVji4xVtYwjar8/exec";
+    const BOOT_TIMEOUT_MS = 10 * 60 * 1000;
 
     let pollingInterval = null;
+    let bootDeadline = null;
 
     async function consultarEstado(token) {
         try {
             const response = await fetch(`${SCRIPT_URL}?key=${token}`);
             const estado = await response.text();
-            actualizarUI(estado.trim(), token);
+            await actualizarUI(estado.trim(), token);
         } catch (error) {
             console.error("API Error", error);
             mostrarError("ERROR DE RED: SIN CONEXIÓN");
@@ -202,7 +204,46 @@
         dot.classList.remove('pulse');
     }
 
-    function actualizarUI(estado, token) {
+    function limpiarTimeoutArranque() {
+        bootDeadline = null;
+    }
+
+    function iniciarTimeoutArranque() {
+        if (!bootDeadline) {
+            bootDeadline = Date.now() + BOOT_TIMEOUT_MS;
+        }
+    }
+
+    async function mostrarFalloArranque(token) {
+        const statusText = document.getElementById('status-text');
+        const labelText = document.getElementById('status-label-text');
+        const dot = document.getElementById('status-dot');
+        const actionArea = document.getElementById('action-area');
+        const lastUpdate = document.getElementById('last-update');
+        const loader = document.getElementById('loader');
+        const card = document.querySelector('.card');
+
+        loader.classList.remove('active');
+        card.classList.remove('online');
+
+        statusText.style.color = "#f87171";
+        dot.style.background = "#f87171";
+        dot.classList.remove('pulse');
+        labelText.textContent = "FALLO DE ARRANQUE: NO SE CONFIRMÓ EL ENCENDIDO";
+
+        try {
+            await fetch(`${SCRIPT_URL}?key=${token}&set=0`);
+            lastUpdate.textContent = "Tiempo agotado (5 min). Estado restablecido a FUERA DE LÍNEA.";
+        } catch (error) {
+            console.error("No se pudo restablecer el estado a 0", error);
+            lastUpdate.textContent = "Tiempo agotado (5 min). No se pudo restablecer estado, vuelve a intentar.";
+        }
+
+        actionArea.innerHTML = `<button onclick="cambiarEstado('${token}', 1)">REINTENTAR ENCENDIDO</button>`;
+        detenerPolling();
+    }
+
+    async function actualizarUI(estado, token) {
         const statusText  = document.getElementById('status-text');
         const labelText   = document.getElementById('status-label-text');
         const dot         = document.getElementById('status-dot');
@@ -214,7 +255,7 @@
 
         const estados = {
             "0": { txt: "SISTEMA: FUERA DE LÍNEA",           color: "#f87171", btn: true,  pulse: false },
-            "1": { txt: "SEÑAL ENVIADA: AGUARDANDO PICO W",  color: "#fbbf24", btn: false, pulse: true  },
+            "1": { txt: "SEÑAL ENVIADA: ESPERANDO A PICO W",  color: "#fbbf24", btn: false, pulse: true  },
             "2": { txt: "HARDWARE: INICIANDO...",             color: "#60a5fa", btn: false, pulse: true  },
             "3": { txt: "SISTEMA: EN LÍNEA",                 color: "#4ade80", btn: false, pulse: true  }
         };
@@ -225,6 +266,19 @@
             mostrarError("ERROR: TOKEN INVÁLIDO");
             detenerPolling();
             return;
+        }
+
+        if (estado === "3" || estado === "0") {
+            limpiarTimeoutArranque();
+        }
+
+        if (["1", "2"].includes(estado)) {
+            iniciarTimeoutArranque();
+            if (Date.now() > bootDeadline) {
+                await mostrarFalloArranque(token);
+                limpiarTimeoutArranque();
+                return;
+            }
         }
 
         loader.classList.toggle('active', ["1","2"].includes(estado));
@@ -246,8 +300,12 @@
     async function cambiarEstado(token, nuevoEstado) {
         document.getElementById('action-area').innerHTML = "<button disabled>ENVIANDO COMANDO...</button>";
         document.getElementById('loader').classList.add('active');
+        bootDeadline = Date.now() + BOOT_TIMEOUT_MS;
         await fetch(`${SCRIPT_URL}?key=${token}&set=${nuevoEstado}`);
         consultarEstado(token);
+        if (!pollingInterval) {
+            pollingInterval = setInterval(() => consultarEstado(token), 8000);
+        }
     }
 
     function detenerPolling() {
@@ -259,6 +317,7 @@
 
     function cerrarSesion() {
         detenerPolling();
+        limpiarTimeoutArranque();
         document.getElementById('display-area').style.display = "none";
         document.getElementById('auth-section').style.display = "block";
         document.getElementById('token').value = "";
@@ -271,6 +330,7 @@
         if (!token) return;
 
         detenerPolling();
+        limpiarTimeoutArranque();
 
         document.getElementById('auth-section').style.display = "none";
         document.getElementById('display-area').style.display = "block";
